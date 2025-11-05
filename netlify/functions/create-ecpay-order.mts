@@ -12,7 +12,7 @@ function generateCheckMacValue(params: Record<string, any>, hashKey: string, has
   checkString += `&HashIV=${hashIV}`;
 
   // URL encode, lowercase, then SHA256
-  const urlEncoded = encodeURIComponent(checkString).toLowerCase().replace(/'/g, "%27").replace(/~/g, "%7e").replace(/%20/g, "+");
+  const urlEncoded = encodeURIComponent(checkString).toLowerCase().replace(/\'/g, "%27").replace(/~/g, "%7e").replace(/%20/g, "+");
   const hash = crypto.SHA256(urlEncoded).toString();
   
   return hash.toUpperCase();
@@ -85,4 +85,23 @@ export default async (req: Request, context: Context) => {
       </head>
       <body>
         <form id="ecpay-form" method="post" action="${ecpayUrl}" style="display:none;">
-          ${Object.entries(allParams).map(([key, value]) => `<input type="hidden" name="${key}" value="${String(value).replace(/
+          ${Object.entries(allParams).map(([key, value]) => `<input type="hidden" name="${key}" value="${String(value).split('"').join('&quot;')}" />`).join("\n")}
+        </form>
+        <script type="text/javascript">
+          document.getElementById("ecpay-form").submit();
+        </script>
+        <p>Redirecting to payment gateway, please wait...</p>
+      </body>
+      </html>
+    `;
+
+    // 6. Return the HTML response to the browser
+    return new Response(html, {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+
+  } catch (error) {
+    console.error("Error creating ECPay order:", error);
+    return new Response("An error occurred while creating the payment order.", { status: 500 });
+  }
+};
