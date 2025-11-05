@@ -1,0 +1,5 @@
+{
+  "name": "One-Page E-Commerce Site",
+  "description": "A single-page sales website featuring a product display, shopping cart, and checkout flow. It is designed to integrate with ECPay for payments, with order management handled via Google Sheets and email notifications.",
+  "requestFramePermissions": []
+}
