@@ -15,9 +15,10 @@ const App: React.FC = () => {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const { cart, view, orderStatus, orderDetails } = state;
 
-  // Handle redirect from ECPay
+  // Handle redirect from ECPay by checking URL query parameters
   useEffect(() => {
-    if (window.location.pathname === '/thank-you') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('from_ecpay')) {
       // This page is shown for success, failure, or cancellation.
       // The real result is processed by the server-side ReturnURL.
       dispatch({ type: 'SET_ORDER_STATUS', payload: { 
@@ -28,6 +29,8 @@ const App: React.FC = () => {
         } 
       }});
       setView('status');
+      // Optional: remove the query params from URL without reloading the page
+      window.history.replaceState({}, document.title, "/");
     }
   }, []); // Empty dependency array ensures this runs only once on mount
 

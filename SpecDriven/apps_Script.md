@@ -21,7 +21,7 @@ function doPost(e) {
     // 3. 準備要寫入的資料
     const newRowData = [
       new Date(),                     // A: 時間戳記
-      data.MerchantTradeNo || 'N/A',  // B: 訂單編號
+      data.TradeNo || data.MerchantTradeNo || 'N/A',  // B: 訂單編號 (優先使用綠界交易單號)
       data.CustomField2 || 'N/A',     // C: 顧客姓名
       data.CustomField1 || 'N/A',     // D: 顧客 Email
       data.CustomField3 || 'N/A',     // E: 購買品項
