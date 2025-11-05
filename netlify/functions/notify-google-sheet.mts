@@ -12,8 +12,9 @@
     
       console.log("[notify-google-sheet] Function triggered.");
 
-      // 1. 取得 Function 1 (或未來綠界) 傳來的資料
-      const data = await req.json();
+      // 1. 取得綠界傳來的表單資料 (form data)
+      const formData = await req.formData();
+      const data = Object.fromEntries(formData.entries());
       console.log("[notify-google-sheet] Received data:", JSON.stringify(data, null, 2));
     
       // 2. 讀取我們存在 Netlify 後台的環境變數

@@ -1,5 +1,5 @@
 
-import React, { useState, useReducer, useCallback } from 'react';
+import React, { useState, useReducer, useCallback, useEffect } from 'react';
 import type { CartItem, CustomerInfo, InvoiceInfo, Order } from './types.ts';
 import { AppState, CartAction, initialAppState, appReducer } from './state.ts';
 import { AppContext } from './context/AppContext.ts';
@@ -14,6 +14,23 @@ import { MOCK_PRODUCT } from './constants.ts';
 const App: React.FC = () => {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const { cart, view, orderStatus, orderDetails } = state;
+
+  // Handle redirect from ECPay
+  useEffect(() => {
+    if (window.location.pathname === '/thank-you') {
+      // This page is shown for success, failure, or cancellation.
+      // The real result is processed by the server-side ReturnURL.
+      dispatch({ type: 'SET_ORDER_STATUS', payload: { 
+        status: 'success', // Use a neutral/positive icon
+        details: { 
+          orderId: '', // Do not display a specific order ID here
+          message: 'Thank you for your order. A confirmation email with the final transaction result will be sent to you shortly.' 
+        } 
+      }});
+      setView('status');
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
 
   const addToCart = (item: CartItem) => {
     dispatch({ type: 'ADD_TO_CART', payload: item });
