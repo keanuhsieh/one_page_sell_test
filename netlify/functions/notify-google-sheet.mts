@@ -10,19 +10,25 @@
      */
     export default async (req: Request, context: Context) => {
     
+      console.log("[notify-google-sheet] Function triggered.");
+
       // 1. 取得 Function 1 (或未來綠界) 傳來的資料
       const data = await req.json();
+      console.log("[notify-google-sheet] Received data:", JSON.stringify(data, null, 2));
     
       // 2. 讀取我們存在 Netlify 後台的環境變數
+      // @ts-ignore
       const GOOGLE_APP_SCRIPT_URL = Netlify.env.get("GOOGLE_APP_SCRIPT_URL");
+      console.log("[notify-google-sheet] Read GOOGLE_APP_SCRIPT_URL:", GOOGLE_APP_SCRIPT_URL);
     
       if (!GOOGLE_APP_SCRIPT_URL) {
-        console.error("錯誤: 找不到 GOOGLE_APP_SCRIPT_URL 環境變數");
+        console.error("[notify-google-sheet] FATAL: 找不到 GOOGLE_APP_SCRIPT_URL 環境變數");
         return new Response("Webhook 失敗: 伺服器設定錯誤", { status: 500 });
       }
     
       // 3. (真實) 呼叫 Google Apps Script Web App
       try {
+        console.log(`[notify-google-sheet] Calling Google Apps Script URL: ${GOOGLE_APP_SCRIPT_URL}`);
         const response = await fetch(GOOGLE_APP_SCRIPT_URL, {
           method: "POST",
           headers: {
@@ -32,15 +38,16 @@
         });
     
         if (!response.ok) {
-          throw new Error(`Google Apps Script 回應錯誤: ${response.statusText}`);
+          const errorBody = await response.text();
+          throw new Error(`Google Apps Script 回應錯誤: ${response.status} ${response.statusText}. Body: ${errorBody}`);
         }
         
         // (POC 除錯用) 顯示 Google 回傳的訊息
         const googleResult = await response.json();
-        console.log("成功寫入 Google:", googleResult);
+        console.log("[notify-google-sheet] 成功寫入 Google:", googleResult);
     
       } catch (error) {
-        console.error("呼叫 Google Apps Script 失敗:", error);
+        console.error("[notify-google-sheet] 呼叫 Google Apps Script 失敗:", error);
         // 即使失敗，也回傳 200 給觸發者 (Function 1)，因為這是背景任務
       }
     
