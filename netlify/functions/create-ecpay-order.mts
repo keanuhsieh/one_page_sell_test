@@ -25,8 +25,7 @@ export default async (req: Request, context: Context) => {
   const hashKey = Netlify.env.get("ECPAY_HASH_KEY") || Netlify.env.get("GREEN_CIRCLE_HASH_KEY");
   const hashIV = Netlify.env.get("ECPAY_HASH_IV") || Netlify.env.get("GREEN_CIRCLE_HASH_IV");
   
-  // Using ECPay's staging environment for testing
-  const ecpayUrl = "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";
+  const ecpayUrl = "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5"; // ECPay Production URL
 
   if (!merchantID || !hashKey || !hashIV) {
     console.error("FATAL: ECPay credentials are not configured in environment variables.");

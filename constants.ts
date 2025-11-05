@@ -11,7 +11,7 @@ export const MOCK_PRODUCT: Product = {
     'Weight': '75 grams',
     'Compatibility': 'iOS & Android'
   },
-  price: 12000,
+  price: 10,
   images: [
     'https://picsum.photos/id/1025/800/600',
     'https://picsum.photos/id/10/800/600',
