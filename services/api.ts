@@ -4,22 +4,20 @@ import type { Order, OrderDetails } from '../types.ts';
 import { TAX_RATE } from '../constants.ts';
 
 /**
- * Creates an ECPay order by calling the backend Netlify Function.
- * This implementation is based on the POC, where Function 1 simulates the
- * entire ECPay flow and triggers Function 2 in the background.
+ * Calls the backend to create a real ECPay order.
+ * The backend will return a full HTML page with an auto-submitting form.
+ * This function returns that HTML as a string.
  */
-export const createEcpayOrder = async (order: Order): Promise<OrderDetails> => {
+export const createEcpayOrder = async (order: Order): Promise<string> => {
   console.log('Calling Netlify Function `create-ecpay-order` with:', order);
 
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalAmount = Math.round(subtotal * (1 + TAX_RATE));
   
-  // Construct the payload required by the POC function
   const payload = {
     amount: totalAmount,
     customerEmail: order.customer.email,
     customerName: order.customer.name,
-    // Combine item names for the mock payload
     itemName: order.items.map(item => `${item.name} x${item.quantity}`).join('#')
   };
 
@@ -33,17 +31,13 @@ export const createEcpayOrder = async (order: Order): Promise<OrderDetails> => {
     });
 
     if (!response.ok) {
-      // Try to get a meaningful error message from the server
-      const errorData = await response.json().catch(() => ({ message: 'An unknown server error occurred.' }));
-      throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Server responded with ${response.status}: ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log("Received from function:", result);
-    return {
-        orderId: result.orderId,
-        message: result.message
-    };
+    // The response is now expected to be an HTML string
+    const htmlRedirectPage = await response.text();
+    return htmlRedirectPage;
 
   } catch (error) {
     console.error("Error calling create-ecpay-order function:", error);

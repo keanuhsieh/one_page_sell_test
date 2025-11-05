@@ -1,47 +1,88 @@
 import type { Context } from "@netlify/functions";
+import crypto from "crypto-js";
 
-/*
- * Function 1: 模擬建立訂單
- * * 任務:
- * 1. 假裝自己是綠界，建立了一個訂單。
- * 2. (最重要) 在背景 "模擬" 綠界 webhook，去呼叫我們 "真實" 的 Function 2。
- * 3. 立刻回傳 "OK" 給前端。
- */
-export default async (req: Request, context: Context) => {
+// Helper function to generate ECPay CheckMacValue
+function generateCheckMacValue(params: Record<string, any>, hashKey: string, hashIV: string): string {
+  const sortedKeys = Object.keys(params).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   
-  // 1. 取得前端傳來的訂單資料
-  const orderDetails = await req.json();
+  let checkString = `HashKey=${hashKey}`;
+  for (const key of sortedKeys) {
+    checkString += `&${key}=${params[key]}`;
+  }
+  checkString += `&HashIV=${hashIV}`;
 
-  // 2. 準備要 "模擬" 綠界 webhook 傳送的資料
-  const mockEcpayPayload = {
-    MerchantTradeNo: `POC_${Date.now()}`, // 模擬的訂單編號
-    RtnCode: '1', // '1' 代表付款成功
-    RtnMsg: '付款成功 (模擬)',
-    TradeAmt: orderDetails.amount,
-    // 真正串接時，這些資料要從前端傳來
-    CustomField1: orderDetails.customerEmail, 
-    CustomField2: orderDetails.customerName,
-    CustomField3: orderDetails.itemName,
-  };
+  // URL encode, lowercase, then SHA256
+  const urlEncoded = encodeURIComponent(checkString).toLowerCase().replace(/'/g, "%27").replace(/~/g, "%7e").replace(/%20/g, "+");
+  const hash = crypto.SHA256(urlEncoded).toString();
+  
+  return hash.toUpperCase();
+}
 
-  // 3. (關鍵) 在背景呼叫 Function 2，把模擬資料傳過去
-  // 這就是用 context.waitUntil 來模擬非同步的 Webhook
-  // 這會 "觸發" Function 2，但 "不會" 等待它完成
-  context.waitUntil(
-    fetch(new URL(req.url).origin + '/.netlify/functions/notify-google-sheet', {
-      method: 'POST',
-      body: JSON.stringify(mockEcpayPayload),
-      headers: { 'Content-Type': 'application/json' }
-    })
-    .catch(err => console.error("背景呼叫 Function 2 失敗:", err))
-  );
+export default async (req: Request, context: Context) => {
+  // 1. Read ECPay credentials from environment variables
+  // Uses ECPAY_ variables first, with fallbacks to user's GREEN_CIRCLE_ variables
+  const merchantID = Netlify.env.get("ECPAY_MERCHANT_ID") || Netlify.env.get("MERCHANT_ID");
+  const hashKey = Netlify.env.get("ECPAY_HASH_KEY") || Netlify.env.get("GREEN_CIRCLE_HASH_KEY");
+  const hashIV = Netlify.env.get("ECPAY_HASH_IV") || Netlify.env.get("GREEN_CIRCLE_HASH_IV");
+  
+  // Using ECPay's staging environment for testing
+  const ecpayUrl = "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";
 
-  // 4. 立刻回傳給前端，告訴它 "任務已提交"，並附上模擬的訂單編號
-  return new Response(JSON.stringify({ 
-    orderId: mockEcpayPayload.MerchantTradeNo, // 將模擬訂單編號回傳
-    message: "已觸發背景 Google Sheet 寫入 (模擬)" 
-  }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
-  });
-};
+  if (!merchantID || !hashKey || !hashIV) {
+    console.error("FATAL: ECPay credentials are not configured in environment variables.");
+    return new Response("Server configuration error: ECPay credentials missing.", { status: 500 });
+  }
+
+  try {
+    // 2. Get order details from the frontend request
+    const order = await req.json();
+    const totalAmount = String(order.amount);
+    const itemName = order.itemName;
+    const siteUrl = context.site.url;
+
+    // 3. Construct ECPay parameters
+    const tradeNo = "gemini" + Date.now();
+    const tradeDate = new Date().toLocaleString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Taipei'
+    }).replace(/\//g, '/');
+
+    const baseParams = {
+      MerchantID: merchantID,
+      MerchantTradeNo: tradeNo,
+      MerchantTradeDate: tradeDate,
+      PaymentType: "aio",
+      TotalAmount: totalAmount,
+      TradeDesc: "AuraLens Pro Smart Glasses Purchase",
+      ItemName: itemName,
+      ReturnURL: `${siteUrl}/.netlify/functions/notify-google-sheet`, // Server-side notification URL
+      ChoosePayment: "ALL",
+      EncryptType: "1",
+      OrderResultURL: `${siteUrl}/thank-you`, // Client-side redirect URL after payment
+    };
+
+    // 4. Generate CheckMacValue
+    const checkMacValue = generateCheckMacValue(baseParams, hashKey, hashIV);
+
+    const allParams = {
+      ...baseParams,
+      CheckMacValue: checkMacValue,
+    };
+
+    // 5. Generate the auto-submitting HTML form
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Redirecting to ECPay...</title>
+      </head>
+      <body>
+        <form id="ecpay-form" method="post" action="${ecpayUrl}" style="display:none;">
+          ${Object.entries(allParams).map(([key, value]) => `<input type="hidden" name="${key}" value="${String(value).replace(/

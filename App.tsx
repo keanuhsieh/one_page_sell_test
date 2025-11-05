@@ -43,14 +43,18 @@ const App: React.FC = () => {
         customer: customerInfo,
         invoice: invoiceInfo,
       };
-      const result = await createEcpayOrder(order);
-      dispatch({ type: 'SET_ORDER_STATUS', payload: { status: 'success', details: result }});
-      clearCart();
+      // createEcpayOrder now returns a full HTML page as a string
+      const redirectHtml = await createEcpayOrder(order);
+      // Replace the current page with the ECPay form to trigger redirection
+      document.open();
+      document.write(redirectHtml);
+      document.close();
+
     } catch (error) {
       console.error("Payment failed:", error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       dispatch({ type: 'SET_ORDER_STATUS', payload: { status: 'failure', details: { orderId: 'N/A', message: errorMessage } }});
-    } finally {
+      // If payment fails, show the status screen
       setView('status');
     }
   }, [cart]);
