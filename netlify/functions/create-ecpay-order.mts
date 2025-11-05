@@ -64,7 +64,7 @@ export default async (req: Request, context: Context) => {
       ReturnURL: `${siteUrl}/.netlify/functions/notify-google-sheet`, // Server-side notification URL
       ChoosePayment: "ALL",
       EncryptType: "1",
-      OrderResultURL: `${siteUrl}/thank-you`, // Client-side redirect URL after payment
+      OrderResultURL: `${siteUrl}/thank-you.html`, // Client-side redirect URL after payment
     };
 
     // 4. Generate CheckMacValue
