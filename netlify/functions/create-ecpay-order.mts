@@ -51,7 +51,7 @@ export default async (req: Request, context: Context) => {
       second: '2-digit',
       hour12: false,
       timeZone: 'Asia/Taipei'
-    }).replace(/\//g, '/');
+    });
 
     const baseParams = {
       MerchantID: merchantID,
